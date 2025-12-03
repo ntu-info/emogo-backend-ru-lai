@@ -1,1 +1,4 @@
 fastapi[all]
+motor[srv]==3.3.2
+pymongo==4.6.0
+python-multipart==0.0.6

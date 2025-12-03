@@ -106,3 +106,25 @@ venv.bak/
 
 # Mac OS
 .DS_Store
+
+# Test and example files
+test_data.py
+*_test.py
+example_*.json
+example_*.csv
+*_export_*.json
+*.code-workspace
+
+# Backup files
+*_OLD.*
+*_BACKUP.*
+*.bak
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
