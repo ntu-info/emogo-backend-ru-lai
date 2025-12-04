@@ -1,6 +1,7 @@
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConnectionFailure
+from pymongo import server_api
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,12 +15,17 @@ async def connect_to_mongo(app):
         # Get MongoDB URI from environment variable
         mongo_uri = os.getenv("MONGODB_URI")
         if not mongo_uri:
-            # Default for local development - will fail if MongoDB not running
-            mongo_uri = "mongodb://localhost:27017"
-            logger.warning("Using default local MongoDB URI. Set MONGODB_URI environment variable for production.")
+            # MongoDB Atlas connection for production
+            mongo_uri = "mongodb+srv://lairu:emogo2025@cluster0.am8juwb.mongodb.net/?appName=Cluster0"
+            logger.info("Using MongoDB Atlas connection.")
         
-        # Create client
-        app.mongodb_client = AsyncIOMotorClient(mongo_uri)
+        # Create client with SSL configuration for Atlas
+        app.mongodb_client = AsyncIOMotorClient(
+            mongo_uri,
+            tls=True,
+            tlsAllowInvalidCertificates=True,  # For development/assignment use
+            server_api=server_api.ServerApi('1')  # Use Server API v1
+        )
         
         # Test connection
         await app.mongodb_client.admin.command('ismaster')
