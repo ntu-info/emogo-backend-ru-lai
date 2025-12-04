@@ -1,9 +1,13 @@
 services:
-  # A Docker web service
   - type: web
-    name: fastapi-example
+    name: emogo-backend-ru-lai
     runtime: python
     plan: free
-    autoDeploy: false
+    autoDeploy: true
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGODB_URI
+        value: mongodb+srv://lairu:emogo2025@cluster0.am8juwb.mongodb.net/?appName=Cluster0
+      - key: DATABASE_NAME
+        value: emogo_db
