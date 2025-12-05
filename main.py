@@ -756,13 +756,16 @@ async def root_dashboard():
     """Main landing page showing live frontend data for TAs and instructors"""
     # Get real-time statistics
     db = await get_database()
-    stats = {"vlogs": 0, "sentiments": 0, "gps": 0, "database_connected": False}
+    vlogs_count = 0
+    sentiments_count = 0
+    gps_count = 0
+    db_connected = False
     
     if db:
-        stats["vlogs"] = await db[VLOGS_COLLECTION].count_documents({})
-        stats["sentiments"] = await db[SENTIMENTS_COLLECTION].count_documents({})  
-        stats["gps"] = await db[GPS_COLLECTION].count_documents({})
-        stats["database_connected"] = True
+        vlogs_count = await db[VLOGS_COLLECTION].count_documents({})
+        sentiments_count = await db[SENTIMENTS_COLLECTION].count_documents({})  
+        gps_count = await db[GPS_COLLECTION].count_documents({})
+        db_connected = True
     
     html_content = f"""
     <!DOCTYPE html>
@@ -959,25 +962,25 @@ async def root_dashboard():
                     <strong>📝 NTU INFO Assignment:</strong> FastAPI + MongoDB Backend with Complete Data Export
                     <br><strong>👥 For TAs & Instructors:</strong> Live view of student's mobile app data collection
                 </div>
-                <div class="status-indicator {'status-connected' if stats['database_connected'] else 'status-disconnected'}">
-                    {'✅ Database Connected' if stats['database_connected'] else '❌ Database Offline'}
+                <div class="status-indicator {'status-connected' if db_connected else 'status-disconnected'}">
+                    {'✅ Database Connected' if db_connected else '❌ Database Offline'}
                 </div>
             </div>
             
             <div class="stats-container">
                 <div class="stat-card">
                     <div class="stat-icon">📱</div>
-                    <div class="stat-number">{stats['vlogs']}</div>
+                    <div class="stat-number">{vlogs_count}</div>
                     <div class="stat-label">Video Vlogs</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">😊</div>
-                    <div class="stat-number">{stats['sentiments']}</div>
+                    <div class="stat-number">{sentiments_count}</div>
                     <div class="stat-label">Sentiment Records</div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-icon">📍</div>
-                    <div class="stat-number">{stats['gps']}</div>
+                    <div class="stat-number">{gps_count}</div>
                     <div class="stat-label">GPS Coordinates</div>
                 </div>
             </div>
