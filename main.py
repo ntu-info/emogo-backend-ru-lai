@@ -208,13 +208,13 @@ async def get_emotions(skip: int = 0, limit: int = 100):
         if not db:
             raise HTTPException(status_code=500, detail="Database not connected")
         
-        cursor = db["emotions"].find().skip(skip).limit(limit)
+        cursor = db["emotion_data"].find().skip(skip).limit(limit)
         emotions = []
         async for emotion in cursor:
             emotion["_id"] = str(emotion["_id"])
             emotions.append(emotion)
         
-        count = await db["emotions"].count_documents({})
+        count = await db["emotion_data"].count_documents({})
         
         return APIResponse(
             success=True,

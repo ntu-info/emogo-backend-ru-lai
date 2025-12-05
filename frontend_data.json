@@ -1,0 +1,101 @@
+{
+  "metadata": {
+    "appName": "EmoGo",
+    "exportDate": "2025-11-27T14:08:11.552Z",
+    "totalRecords": 5,
+    "emotionRecords": 5,
+    "vlogRecords": 5,
+    "locationRecords": 5,
+    "timeSpanHours": "12.31",
+    "meetsRequirements": true
+  },
+  "emotionData": [
+    {
+      "id": 1764207858170,
+      "emotion": 3,
+      "emotionLabel": "Neutral",
+      "timestamp": "2025-11-27T01:44:18.170Z",
+      "hasVlog": true,
+      "location": {
+        "latitude": 25.016838554868805,
+        "longitude": 121.53797213487803,
+        "accuracy": 33.68443999423612
+      }
+    },
+    {
+      "id": 1764210278706,
+      "emotion": 4,
+      "emotionLabel": "Happy",
+      "timestamp": "2025-11-27T02:24:38.706Z",
+      "hasVlog": true,
+      "location": {
+        "latitude": 25.016715878208373,
+        "longitude": 121.53790520873001,
+        "accuracy": 33.15475546012163
+      }
+    },
+    {
+      "id": 1764211040873,
+      "emotion": 1,
+      "emotionLabel": "Very Sad",
+      "timestamp": "2025-11-27T02:37:20.873Z",
+      "hasVlog": true,
+      "location": {
+        "latitude": 25.016721036433474,
+        "longitude": 121.53791966153526,
+        "accuracy": 42.080630302512695
+      }
+    },
+    {
+      "id": 1764227677037,
+      "emotion": 4,
+      "emotionLabel": "Happy",
+      "timestamp": "2025-11-27T07:14:37.037Z",
+      "hasVlog": true,
+      "location": {
+        "latitude": 25.01607825153572,
+        "longitude": 121.5378486659713,
+        "accuracy": 40.01162332073657
+      }
+    },
+    {
+      "id": 1764252186604,
+      "emotion": 5,
+      "emotionLabel": "Very Happy",
+      "timestamp": "2025-11-27T14:03:06.604Z",
+      "hasVlog": true,
+      "location": {
+        "latitude": 24.980748097719815,
+        "longitude": 121.50673531874914,
+        "accuracy": 43.32370605343257
+      }
+    }
+  ],
+  "statistics": {
+    "averageEmotion": "3.40",
+    "emotionDistribution": [
+      {
+        "emotion": "Very Sad",
+        "count": 1
+      },
+      {
+        "emotion": "Sad",
+        "count": 0
+      },
+      {
+        "emotion": "Neutral",
+        "count": 1
+      },
+      {
+        "emotion": "Happy",
+        "count": 2
+      },
+      {
+        "emotion": "Very Happy",
+        "count": 1
+      }
+    ],
+    "vlogSuccessRate": "100.0%",
+    "locationSuccessRate": "100.0%"
+  }
+}

@@ -1,112 +1,37 @@
-# 🎭 EmoGo Backend API
+# Data 資料夾說明
 
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/e7FBMwSa)
+此資料夾用於存放從 EmoGo 應用程式匯出的數據檔案，以滿足作業第三項要求。
 
-A FastAPI backend service for the EmoGo mobile application, supporting both frontend-compatible data formats and legacy formats.
+## 📁 檔案要求
 
----
+### 作業要求第三項：
+> "data" folder storing exported data (3+ records for each data type w/ Tlast-T1st > 12 hours)
 
-## 🎯 **FOR TAs & INSTRUCTORS - ASSIGNMENT SUBMISSION**
+### 📊 數據類型要求：
+- **情緒記錄**: 至少 3 筆
+- **Vlog 記錄**: 至少 3 筆  
+- **GPS 記錄**: 至少 3 筆
+- **時間跨度**: 最後一筆 - 第一筆 > 12 小時
 
-### 📋 **REQUIRED URI for Data Export/Download:**
+### 📱 數據來源：
+1. 使用 EmoGo 應用程式記錄情緒 + vlog + GPS
+2. 在應用程式中點擊「📤 匯出數據」
+3. 透過 AirDrop 將 JSON 檔案傳送到電腦
+4. 將檔案放入此 `data/` 資料夾
 
-```
-https://emogo-backend-ru-lai.onrender.com/export
-```
+### 📄 預期檔案格式：
+- `emogo_export_YYYY-MM-DD.json` - 主要數據匯出檔案
+- 包含完整的 metadata、emotionData、statistics
 
-**This is the main URI where TAs can:**
-- ✅ **View all collected data** (vlogs, sentiments, GPS coordinates)  
-- ✅ **Download data in JSON/CSV formats**
-- ✅ **Access real-time data from MongoDB Atlas**
-- ✅ **Evaluate assignment completion**
+## 🔍 數據驗證
+匯出的數據會自動驗證是否滿足作業要求，包括：
+- 記錄數量檢查
+- 時間跨度驗證
+- 數據完整性確認
 
-### 🌐 **Additional Assignment URIs:**
-- **API Documentation**: `https://emogo-backend-ru-lai.onrender.com/docs`
-- **Health Check**: `https://emogo-backend-ru-lai.onrender.com/`
-- **GitHub Repository**: `https://github.com/ntu-info/emogo-backend-ru-lai`
-
----
-
-## 📋 Assignment Requirements
-
-This backend collects and provides export functionality for three types of data from the EmoGo mobile app:
-
-1. **😊 Emotions** - Emotion tracking data (1-5 scale: Very Sad to Very Happy)
-2. **📱 Vlogs** - Video logs with mood and location information  
-3. **📍 Locations** - GPS coordinates and location tracking data
-
-## ✅ Assignment Status
-
-**🎯 Assignment Completed Successfully!**
-
-- ✅ **FastAPI Backend**: Deployed on Render Cloud Platform
-- ✅ **MongoDB Atlas Database**: Connected and operational  
-- ✅ **Data Collection**: All three data types (vlogs, sentiments, GPS coordinates)
-- ✅ **Data Export**: Available via public web interface and API endpoints
-- ✅ **Public Server**: Accessible from anywhere via HTTPS
-- ✅ **TA Access**: **Public data export page ready at `https://emogo-backend-ru-lai.onrender.com/export`**
-
-## 🔗 Data Export/Download URI
-
-### 🎯 **MAIN DATA EXPORT URI** (Required for Assignment)
-
-```
-https://emogo-backend-ru-lai.onrender.com/export
-```
-
-**This is the primary URI for TAs and instructors to:**
-- ✅ **View all collected data** (vlogs, sentiments, GPS coordinates)
-- ✅ **Download in multiple formats** (JSON, CSV)  
-- ✅ **Filter by data type**
-- ✅ **Access real-time data from MongoDB Atlas cloud database**
-- ✅ **Evaluate assignment completion**
-
-## 🚀 API Endpoints
-
-### 🎭 Frontend-Compatible Data Collection (Recommended)
-- `POST /emotions` - Submit emotion data (matches EmoGo frontend format)
-- `POST /vlogs-data` - Submit vlog data (matches EmoGo frontend format)  
-- `POST /locations` - Submit location data
-
-### 📊 Frontend-Compatible Data Retrieval
-- `GET /emotions` - Retrieve all emotion data
-- `GET /vlogs-data` - Retrieve all vlog data
-- `GET /locations` - Retrieve all location data
-
-### 🔄 Legacy Data Collection (Backward Compatibility)
-- `POST /vlogs` - Submit vlog data (legacy format)
-- `POST /sentiments` - Submit sentiment data (legacy format)
-- `POST /gps` - Submit GPS coordinate data (legacy format)
-
-### 📈 Legacy Data Retrieval
-- `GET /vlogs` - Retrieve all vlogs (legacy format)
-- `GET /sentiments` - Retrieve all sentiments (legacy format)
-- `GET /gps` - Retrieve all GPS coordinates (legacy format)
-
-### 📥 Data Export
-- `GET /export` - Export data with multiple format options
-- `GET /export-page` - Interactive web interface for data export
-
-## 🛠 Technology Stack
-
-- **Framework**: FastAPI 0.104.1
-- **Database**: MongoDB Atlas (Cloud) 
-- **Database Driver**: Motor 3.3.2 (Async MongoDB driver)
-- **Data Validation**: Pydantic v2
-- **Authentication**: MongoDB Atlas with public access (0.0.0.0/0)
-- **Export Formats**: JSON, CSV
-- **Deployment**: Render Platform
-
-## ✅ Assignment Completion Checklist
-
-**All requirements fulfilled:**
-
-- ✅ **FastAPI backend deployed on public server** (Render)
-- ✅ **MongoDB Atlas integration** with public access
-- ✅ **Frontend-compatible data models** (matches EmoGo app)
-- ✅ **Data collection endpoints** for emotions, vlogs, and locations
-- ✅ **Data export endpoints** with JSON/CSV support
-- ✅ **Interactive export page** for TAs and instructors
-- ✅ **Public URIs listed in README** (this document)
-- ✅ **API documentation** available at `/docs`
-- ✅ **Chat conversation log** included (chat.json)
+## 📝 使用說明
+1. 在手機上使用 EmoGo 應用程式記錄至少 3 筆數據
+2. 確保記錄時間跨度超過 12 小時
+3. 點擊「匯出數據」按鈕
+4. 使用 AirDrop 傳送 JSON 檔案到此資料夾
+5. 提交作業時確保此資料夾包含完整的數據檔案
