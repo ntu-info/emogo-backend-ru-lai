@@ -761,7 +761,7 @@ async def root_dashboard():
     gps_count = 0
     db_connected = False
     
-    if db:
+    if db is not None:
         vlogs_count = await db[VLOGS_COLLECTION].count_documents({})
         sentiments_count = await db[SENTIMENTS_COLLECTION].count_documents({})  
         gps_count = await db[GPS_COLLECTION].count_documents({})
