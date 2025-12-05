@@ -54,8 +54,14 @@ async def root():
     return APIResponse(
         success=True,
         message="Welcome to EmoGo Backend API! Visit /docs for API documentation.",
-        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export"]}
+        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export", "/dashboard", "/docs"]}
     )
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    """Dashboard for TAs and instructors - alternative to /export"""
+    return await export_page()
 
 
 # Frontend-Compatible Data Collection Endpoints
@@ -500,6 +506,82 @@ async def export_data(
                 headers={"Content-Disposition": f"attachment; filename=emogo_export_{data_type}.csv"}
             )
             
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
+
+
+@app.get("/api/export/{data_type}")
+async def simple_export_data(data_type: str, format: str = "json"):
+    """Simple export data endpoint without complex Query validation"""
+    try:
+        db = get_database(app)
+        if not db:
+            raise HTTPException(status_code=500, detail="Database not connected")
+        
+        # Validate data_type
+        valid_types = ["vlogs", "sentiments", "gps", "emotions", "vlogs-data", "locations", "all", "frontend"]
+        if data_type not in valid_types:
+            raise HTTPException(status_code=400, detail=f"Invalid data_type. Must be one of: {valid_types}")
+        
+        if data_type == "frontend":
+            # Export all frontend data types
+            emotions = []
+            vlogs_data = []
+            locations = []
+            
+            async for emotion in db["emotion_data"].find():
+                emotion["_id"] = str(emotion["_id"])
+                emotions.append(emotion)
+            
+            async for vlog in db["vlog_data"].find():
+                vlog["_id"] = str(vlog["_id"])
+                vlogs_data.append(vlog)
+                
+            async for location in db["locations"].find():
+                location["_id"] = str(location["_id"])
+                locations.append(location)
+            
+            return {
+                "success": True,
+                "data": {
+                    "emotions": emotions,
+                    "vlogs_data": vlogs_data,
+                    "locations": locations
+                },
+                "count": {
+                    "emotions": len(emotions),
+                    "vlogs_data": len(vlogs_data),
+                    "locations": len(locations)
+                },
+                "export_timestamp": datetime.utcnow().isoformat()
+            }
+        
+        # Handle other data types...
+        collection_map = {
+            "vlogs": VLOGS_COLLECTION,
+            "sentiments": SENTIMENTS_COLLECTION,
+            "gps": GPS_COLLECTION,
+            "emotions": "emotion_data",
+            "vlogs-data": "vlog_data",
+            "locations": "locations"
+        }
+        
+        collection_name = collection_map.get(data_type)
+        if not collection_name:
+            raise HTTPException(status_code=400, detail="Invalid data type")
+        
+        data = []
+        async for doc in db[collection_name].find():
+            doc["_id"] = str(doc["_id"])
+            data.append(doc)
+        
+        return {
+            "success": True,
+            "data": data,
+            "count": len(data),
+            "export_timestamp": datetime.utcnow().isoformat()
+        }
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
 
