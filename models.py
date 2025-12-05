@@ -3,65 +3,42 @@ from typing import Optional, List
 from datetime import datetime
 
 
-class Location(BaseModel):
-    latitude: float
-    longitude: float
-    accuracy: Optional[float] = None
-    hasGPS: Optional[bool] = True
-
-
-class EmotionData(BaseModel):
-    id: Optional[int] = None
-    emotion: int = Field(..., ge=1, le=5)  # 1=Very Sad, 2=Sad, 3=Neutral, 4=Happy, 5=Very Happy
-    emotionLabel: str  # "Very Sad", "Sad", "Neutral", "Happy", "Very Happy"
-    timestamp: str  # ISO format timestamp from frontend
-    hasVlog: Optional[bool] = False
-    location: Optional[Location] = None
-    user_id: Optional[str] = None
-
-
-class VlogData(BaseModel):
-    id: Optional[int] = None
-    mood: int = Field(..., ge=1, le=5)  # Same as emotion scale
-    moodLabel: str  # Chinese labels like "非常開心", "心情不錯", etc.
-    moodEmoji: Optional[str] = None  # Emoji representation
-    timestamp: Optional[int] = None  # Unix timestamp
-    date: Optional[str] = None  # Formatted date string
-    videoUri: Optional[str] = None  # Photo library URI or file path
-    video_data: Optional[str] = None  # Base64 encoded video data for upload
-    hasVideo: Optional[bool] = True
-    location: Optional[Location] = None
-    user_id: Optional[str] = None
-
-
 class GPSCoordinate(BaseModel):
-    latitude: float
-    longitude: float
-    timestamp: str  # ISO format timestamp
+    id: Optional[str] = None
+    latitude: float  # 緯度
+    longitude: float  # 經度
+    timestamp: datetime  # 記錄時間
+    upload_time: Optional[datetime] = None  # 上傳時間
     accuracy: Optional[float] = None
     user_id: Optional[str] = None
 
 
-# Legacy models for backward compatibility
 class Sentiment(BaseModel):
+    id: Optional[str] = None
     text: str
+    mood: Optional[str] = None  # 心情 (如: 非常好, 較好)
+    mood_score: Optional[str] = None  # 心情值 (如: 5/5, 4/5)
     sentiment_score: float  # -1 (negative) to 1 (positive)
     confidence: Optional[float] = None
-    timestamp: datetime
+    timestamp: datetime  # 記錄時間
+    upload_time: Optional[datetime] = None  # 上傳時間
     user_id: Optional[str] = None
-    emotions: Optional[dict] = None
+    emotions: Optional[dict] = None  # e.g., {"joy": 0.8, "sadness": 0.2}
 
 
 class Vlog(BaseModel):
+    id: Optional[str] = None
     title: str
     description: Optional[str] = None
-    video_url: Optional[str] = None
-    video_data: Optional[str] = None
+    video_url: Optional[str] = None  # URL to stored video file
+    video_path: Optional[str] = None  # 影片路徑
+    video_data: Optional[str] = None  # Base64 encoded video data
     thumbnail_url: Optional[str] = None
-    duration: Optional[float] = None
-    timestamp: datetime
+    duration: Optional[float] = None  # in seconds
+    timestamp: datetime  # 記錄時間
+    upload_time: Optional[datetime] = None  # 上傳時間
     user_id: Optional[str] = None
-    location: Optional[Location] = None
+    location: Optional[GPSCoordinate] = None
     sentiment_analysis: Optional[Sentiment] = None
 
 
@@ -71,6 +48,19 @@ class DataExportRequest(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     user_id: Optional[str] = None
+
+
+# 前端表格顯示的綜合數據模型
+class EmotionRecord(BaseModel):
+    id: Optional[str] = None
+    mood: str  # 心情
+    mood_score: str  # 心情值 (如: 5/5)
+    latitude: float  # 緯度
+    longitude: float  # 經度
+    timestamp: datetime  # 記錄時間
+    upload_time: datetime  # 上傳時間
+    video_path: Optional[str] = None  # 影片路徑
+    video_url: Optional[str] = None  # 影片下載連結
 
 
 class APIResponse(BaseModel):
