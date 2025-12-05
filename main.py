@@ -2,6 +2,8 @@ from typing import Optional, List
 from datetime import datetime
 import json
 import csv
+import zipfile
+import io
 from io import StringIO
 
 from fastapi import FastAPI, HTTPException, Response, Query
@@ -431,7 +433,43 @@ async def export_data(
             )
         else:  # CSV format
             if data_type == "all":
-                raise HTTPException(status_code=400, detail="CSV format not supported for 'all' data type")
+                # Create a ZIP file with multiple CSV files for all data types
+                import zipfile
+                import io
+                
+                zip_buffer = io.BytesIO()
+                with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                    # Export each data type as separate CSV in the ZIP
+                    for type_name, items in [("vlogs", data["vlogs"]), ("sentiments", data["sentiments"]), ("gps_coordinates", data["gps_coordinates"])]:
+                        if items:
+                            output = StringIO()
+                            writer = csv.DictWriter(output, fieldnames=items[0].keys())
+                            writer.writeheader()
+                            for item in items:
+                                writer.writerow(item)
+                            zip_file.writestr(f"emogo_{type_name}.csv", output.getvalue())
+                            output.close()
+                    
+                    # Add summary file
+                    summary = f"""EmoGo Data Export Summary
+Generated: {datetime.utcnow().isoformat()}
+Total Vlogs: {len(data['vlogs'])}
+Total Sentiments: {len(data['sentiments'])}
+Total GPS Coordinates: {len(data['gps_coordinates'])}
+
+Files included:
+- emogo_vlogs.csv: Video logs and diary entries
+- emogo_sentiments.csv: Sentiment analysis and emotional data  
+- emogo_gps_coordinates.csv: Location tracking data
+"""
+                    zip_file.writestr("README.txt", summary)
+                
+                zip_buffer.seek(0)
+                return Response(
+                    content=zip_buffer.getvalue(),
+                    media_type="application/zip",
+                    headers={"Content-Disposition": "attachment; filename=emogo_complete_export.zip"}
+                )
             
             items = data[data_type]
             if not items:
