@@ -5,10 +5,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import memory database as fallback
+from memory_db import get_memory_collection
 
 class Database:
     client: AsyncIOMotorClient = None
     database = None
+    use_memory = False
 
 
 db = Database()
@@ -18,7 +21,12 @@ async def connect_to_mongo():
     """Create database connection"""
     try:
         # Get MongoDB URI from environment variable
-        mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+        mongo_uri = os.getenv("MONGODB_URI")
+        
+        if not mongo_uri:
+            logger.warning("No MONGODB_URI found, using in-memory database for testing")
+            db.use_memory = True
+            return
         
         # Create client
         db.client = AsyncIOMotorClient(mongo_uri)
@@ -33,10 +41,8 @@ async def connect_to_mongo():
         logger.info(f"Connected to MongoDB at {mongo_uri}")
         
     except Exception as e:
-        logger.error(f"Could not connect to MongoDB: {e}")
-        # Don't raise the error, just log it
-        # This allows the app to start even without MongoDB
-        pass
+        logger.error(f"Could not connect to MongoDB: {e}, falling back to in-memory database")
+        db.use_memory = True
 
 
 async def close_mongo_connection():
@@ -49,13 +55,32 @@ async def close_mongo_connection():
 async def get_database():
     """Get database instance"""
     try:
+        # Check if we should use memory database
+        if db.use_memory:
+            return "memory_db"  # Special marker for memory database
+            
         # Check if database connection exists
         if db.database is None:
             await connect_to_mongo()
+            
+        if db.use_memory:
+            return "memory_db"
+            
         return db.database
     except Exception as e:
         logger.error(f"Error getting database: {e}")
         return None
+
+async def get_collection(collection_name: str):
+    """Get a collection, either from MongoDB or memory"""
+    database = await get_database()
+    
+    if database == "memory_db":
+        return await get_memory_collection(collection_name)
+    elif database is None:
+        return None
+    else:
+        return database[collection_name]
 
 
 # Collection names

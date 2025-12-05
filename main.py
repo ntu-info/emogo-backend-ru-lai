@@ -13,6 +13,7 @@ from database import (
     connect_to_mongo, 
     close_mongo_connection, 
     get_database,
+    get_collection,
     VLOGS_COLLECTION,
     SENTIMENTS_COLLECTION, 
     GPS_COLLECTION
@@ -80,14 +81,14 @@ async def create_vlog(vlog: Vlog):
 async def create_sentiment(sentiment: Sentiment):
     """Create a new sentiment entry"""
     try:
-        db = await get_database()
-        if db is None:
-            raise HTTPException(status_code=500, detail="Database not connected")
+        collection = await get_collection(SENTIMENTS_COLLECTION)
+        if collection is None:
+            raise HTTPException(status_code=500, detail="Database not available")
         
         sentiment_dict = sentiment.dict()
         sentiment_dict["created_at"] = datetime.utcnow()
         
-        result = await db[SENTIMENTS_COLLECTION].insert_one(sentiment_dict)
+        result = await collection.insert_one(sentiment_dict)
         
         return APIResponse(
             success=True,
@@ -156,22 +157,22 @@ async def get_vlogs(skip: int = 0, limit: int = 100):
 async def get_sentiments(skip: int = 0, limit: int = 100):
     """Get all sentiments"""
     try:
-        db = await get_database()
-        if db is None:
+        collection = await get_collection(SENTIMENTS_COLLECTION)
+        if collection is None:
             return APIResponse(
                 success=True,
-                message="Retrieved 0 sentiments (database not connected)",
+                message="Retrieved 0 sentiments (database not available)",
                 data={"sentiments": []},
                 count=0
             )
         
-        cursor = db[SENTIMENTS_COLLECTION].find().skip(skip).limit(limit)
+        cursor = collection.find().skip(skip).limit(limit)
         sentiments = []
         async for sentiment in cursor:
             sentiment["_id"] = str(sentiment["_id"])
             sentiments.append(sentiment)
         
-        count = await db[SENTIMENTS_COLLECTION].count_documents({})
+        count = await collection.count_documents({})
         
         return APIResponse(
             success=True,
