@@ -749,3 +749,343 @@ async def export_page():
     </html>
     """
     return HTMLResponse(content=html_content)
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root_dashboard():
+    """Main landing page showing live frontend data for TAs and instructors"""
+    # Get real-time statistics
+    db = await get_database()
+    stats = {"vlogs": 0, "sentiments": 0, "gps": 0, "database_connected": False}
+    
+    if db:
+        stats["vlogs"] = await db[VLOGS_COLLECTION].count_documents({})
+        stats["sentiments"] = await db[SENTIMENTS_COLLECTION].count_documents({})  
+        stats["gps"] = await db[GPS_COLLECTION].count_documents({})
+        stats["database_connected"] = True
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="zh-TW">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>🎭 EmoGo Frontend Data Dashboard | NTU INFO</title>
+        <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ 
+                font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                color: #333;
+            }}
+            .main-container {{ 
+                max-width: 1200px; 
+                margin: 0 auto; 
+                padding: 20px;
+            }}
+            .hero-section {{ 
+                background: rgba(255, 255, 255, 0.95); 
+                border-radius: 20px; 
+                padding: 50px; 
+                text-align: center; 
+                margin-bottom: 30px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            }}
+            .hero-section h1 {{ 
+                font-size: 3em; 
+                margin-bottom: 20px; 
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+            }}
+            .subtitle {{ 
+                font-size: 1.3em; 
+                color: #666; 
+                margin-bottom: 10px; 
+            }}
+            .assignment-info {{ 
+                background: #e3f2fd; 
+                padding: 15px; 
+                border-radius: 10px; 
+                margin: 20px 0; 
+                border-left: 5px solid #2196f3;
+            }}
+            
+            .stats-container {{ 
+                display: grid; 
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+                gap: 25px; 
+                margin: 30px 0; 
+            }}
+            .stat-card {{ 
+                background: white; 
+                border-radius: 15px; 
+                padding: 30px; 
+                text-align: center; 
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                transition: transform 0.3s ease, box-shadow 0.3s ease;
+                position: relative;
+                overflow: hidden;
+            }}
+            .stat-card::before {{
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 5px;
+                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            }}
+            .stat-card:hover {{ 
+                transform: translateY(-10px); 
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); 
+            }}
+            .stat-icon {{ font-size: 3em; margin-bottom: 15px; }}
+            .stat-number {{ 
+                font-size: 3.5em; 
+                font-weight: bold; 
+                color: #667eea; 
+                margin-bottom: 10px; 
+            }}
+            .stat-label {{ 
+                font-size: 1.2em; 
+                color: #666; 
+                font-weight: 500; 
+            }}
+            
+            .action-section {{ 
+                background: white; 
+                border-radius: 20px; 
+                padding: 40px; 
+                margin: 30px 0;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            }}
+            .section-title {{ 
+                font-size: 2em; 
+                margin-bottom: 25px; 
+                color: #333;
+                text-align: center;
+            }}
+            .button-grid {{ 
+                display: grid; 
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+                gap: 20px; 
+                margin: 30px 0; 
+            }}
+            .action-btn {{ 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white; 
+                text-decoration: none; 
+                padding: 20px; 
+                border: none;
+                border-radius: 12px; 
+                text-align: center; 
+                font-size: 1.1em; 
+                font-weight: 600;
+                transition: all 0.3s ease;
+                box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+                cursor: pointer;
+            }}
+            .action-btn:hover {{ 
+                transform: translateY(-3px); 
+                box-shadow: 0 10px 25px rgba(102, 126, 234, 0.6); 
+            }}
+            .btn-secondary {{ 
+                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+            }}
+            .btn-secondary:hover {{ 
+                box-shadow: 0 10px 25px rgba(79, 172, 254, 0.6); 
+            }}
+            
+            .preview-section {{ 
+                background: #f8f9ff; 
+                border-radius: 15px; 
+                padding: 30px; 
+                margin: 20px 0;
+                border-left: 5px solid #667eea;
+            }}
+            .preview-content {{ 
+                background: white; 
+                border-radius: 10px; 
+                padding: 20px; 
+                margin: 15px 0;
+                min-height: 200px;
+                max-height: 400px;
+                overflow-y: auto;
+            }}
+            
+            .status-indicator {{ 
+                display: inline-flex; 
+                align-items: center; 
+                gap: 8px; 
+                padding: 8px 16px; 
+                border-radius: 20px; 
+                font-size: 0.9em; 
+                font-weight: 600;
+            }}
+            .status-connected {{ background: #e8f5e8; color: #2e7d2e; }}
+            .status-disconnected {{ background: #ffeaea; color: #d63384; }}
+            
+            .footer-info {{ 
+                background: rgba(255, 255, 255, 0.9); 
+                border-radius: 15px; 
+                padding: 25px; 
+                text-align: center; 
+                margin-top: 40px;
+                color: #666;
+            }}
+            
+            @media (max-width: 768px) {{
+                .hero-section {{ padding: 30px 20px; }}
+                .hero-section h1 {{ font-size: 2.2em; }}
+                .stats-container {{ grid-template-columns: 1fr; }}
+                .button-grid {{ grid-template-columns: 1fr; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="main-container">
+            <div class="hero-section">
+                <h1>🎭 EmoGo Data Dashboard</h1>
+                <p class="subtitle">Real-time Frontend Data Visualization</p>
+                <div class="assignment-info">
+                    <strong>📝 NTU INFO Assignment:</strong> FastAPI + MongoDB Backend with Complete Data Export
+                    <br><strong>👥 For TAs & Instructors:</strong> Live view of student's mobile app data collection
+                </div>
+                <div class="status-indicator {'status-connected' if stats['database_connected'] else 'status-disconnected'}">
+                    {'✅ Database Connected' if stats['database_connected'] else '❌ Database Offline'}
+                </div>
+            </div>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon">📱</div>
+                    <div class="stat-number">{stats['vlogs']}</div>
+                    <div class="stat-label">Video Vlogs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">😊</div>
+                    <div class="stat-number">{stats['sentiments']}</div>
+                    <div class="stat-label">Sentiment Records</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📍</div>
+                    <div class="stat-number">{stats['gps']}</div>
+                    <div class="stat-label">GPS Coordinates</div>
+                </div>
+            </div>
+            
+            <div class="action-section">
+                <h2 class="section-title">📥 Complete Data Export</h2>
+                <p style="text-align: center; margin-bottom: 30px; color: #666;">
+                    Download all frontend data collected from the EmoGo mobile application
+                </p>
+                <div class="button-grid">
+                    <a href="/export?data_type=all&format=csv" class="action-btn">
+                        📦 Download Complete Dataset (ZIP)
+                    </a>
+                    <a href="/export?data_type=vlogs&format=csv" class="action-btn btn-secondary">
+                        📱 Vlogs Data (CSV)
+                    </a>
+                    <a href="/export?data_type=sentiments&format=csv" class="action-btn btn-secondary">
+                        😊 Sentiments Data (CSV) 
+                    </a>
+                    <a href="/export?data_type=gps&format=csv" class="action-btn btn-secondary">
+                        📍 GPS Data (CSV)
+                    </a>
+                </div>
+            </div>
+            
+            <div class="action-section">
+                <h2 class="section-title">🔍 Live Data Preview</h2>
+                <div class="button-grid">
+                    <button onclick="loadPreview('vlogs')" class="action-btn">View Latest Vlogs</button>
+                    <button onclick="loadPreview('sentiments')" class="action-btn">View Latest Sentiments</button>
+                    <button onclick="loadPreview('gps')" class="action-btn">View GPS Data</button>
+                    <a href="/docs" class="action-btn btn-secondary">📖 API Documentation</a>
+                </div>
+                <div class="preview-section" id="preview-section" style="display: none;">
+                    <h3 id="preview-title">Data Preview</h3>
+                    <div class="preview-content" id="preview-content">
+                        Select a data type above to preview...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-info">
+                <p><strong>🎓 NTU INFO EmoGo Assignment</strong></p>
+                <p>Backend API: <code>https://emogo-backend-ru-lai.onrender.com</code></p>
+                <p>Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC</p>
+                <p>Student: Ru Lai | Repository: emogo-backend-ru-lai</p>
+            </div>
+        </div>
+        
+        <script>
+        async function loadPreview(dataType) {{
+            const section = document.getElementById('preview-section');
+            const title = document.getElementById('preview-title');
+            const content = document.getElementById('preview-content');
+            
+            section.style.display = 'block';
+            title.textContent = `${{dataType.toUpperCase()}} Data Preview`;
+            content.innerHTML = '<p style="text-align: center;">🔄 Loading data...</p>';
+            
+            try {{
+                const response = await fetch(`/${{dataType}}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {{
+                    const items = result.data[Object.keys(result.data)[0]] || [];
+                    
+                    if (items.length === 0) {{
+                        content.innerHTML = '<p style="text-align: center; color: #666;">📭 No data available</p>';
+                        return;
+                    }}
+                    
+                    let html = `<h4>Latest ${{dataType}} entries (showing ${{Math.min(items.length, 5)}} of ${{items.length}}):</h4><div style="margin-top: 15px;">`;
+                    
+                    items.slice(0, 5).forEach((item, index) => {{
+                        let displayText = '';
+                        let timestamp = '';
+                        
+                        if (dataType === 'vlogs') {{
+                            displayText = `<strong>${{item.title || 'Untitled Vlog'}}</strong><br>${{item.description || 'No description'}}`;
+                            timestamp = item.created_at;
+                        }} else if (dataType === 'sentiments') {{
+                            displayText = `<strong>${{item.mood || 'Unknown mood'}}</strong> (Score: ${{item.emotion_score || 'N/A'}})<br>${{item.note || 'No note'}}`;
+                            timestamp = item.timestamp;
+                        }} else if (dataType === 'gps') {{
+                            displayText = `<strong>Location:</strong> ${{item.latitude}}, ${{item.longitude}}<br>${{item.address || 'No address'}}`;
+                            timestamp = item.timestamp;
+                        }}
+                        
+                        const timeStr = timestamp ? new Date(timestamp).toLocaleString() : 'Unknown time';
+                        html += `
+                            <div style="padding: 15px; margin: 10px 0; background: #f8f9ff; border-radius: 8px; border-left: 4px solid #667eea;">
+                                <div style="margin-bottom: 8px;">${{displayText}}</div>
+                                <small style="color: #666;">🕒 ${{timeStr}}</small>
+                            </div>
+                        `;
+                    }});
+                    
+                    html += '</div>';
+                    content.innerHTML = html;
+                }} else {{
+                    content.innerHTML = '<p style="text-align: center; color: #d63384;">❌ Error loading data</p>';
+                }}
+            }} catch (error) {{
+                content.innerHTML = `<p style="text-align: center; color: #d63384;">❌ Network error: ${{error.message}}</p>`;
+            }}
+        }}
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
