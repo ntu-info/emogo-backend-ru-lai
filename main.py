@@ -4,24 +4,19 @@ import json
 import csv
 from io import StringIO
 
-from fastapi import FastAPI, HTTPException, Response, Query, Request
+from fastapi import FastAPI, HTTPException, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse
 
-from models import (
-    Vlog, Sentiment, GPSCoordinate, DataExportRequest, APIResponse,
-    EmotionData, VlogData, Location
-)
+from models import Vlog, Sentiment, GPSCoordinate, DataExportRequest, APIResponse
 from database import (
     connect_to_mongo, 
     close_mongo_connection, 
-    get_database
+    get_database,
+    VLOGS_COLLECTION,
+    SENTIMENTS_COLLECTION, 
+    GPS_COLLECTION
 )
-
-# Collection names
-VLOGS_COLLECTION = "vlogs"
-SENTIMENTS_COLLECTION = "sentiments"
-GPS_COLLECTION = "gps_coordinates"
 
 app = FastAPI(
     title="EmoGo Backend API",
@@ -41,12 +36,12 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    await connect_to_mongo(app)
+    await connect_to_mongo()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await close_mongo_connection(app)
+    await close_mongo_connection()
 
 
 @app.get("/", response_model=APIResponse)
@@ -54,91 +49,17 @@ async def root():
     return APIResponse(
         success=True,
         message="Welcome to EmoGo Backend API! Visit /docs for API documentation.",
-        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export", "/dashboard", "/docs"]}
+        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export"]}
     )
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
-    """Dashboard for TAs and instructors - alternative to /export"""
-    return await export_page()
-
-
-# Frontend-Compatible Data Collection Endpoints
-@app.post("/emotions", response_model=APIResponse)
-async def create_emotion_data(emotion: EmotionData):
-    """Create a new emotion data entry (Frontend compatible)"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        emotion_dict = emotion.dict()
-        emotion_dict["created_at"] = datetime.utcnow()
-        
-        result = await db["emotions"].insert_one(emotion_dict)
-        
-        return APIResponse(
-            success=True,
-            message="Emotion data created successfully",
-            data={"id": str(result.inserted_id)}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating emotion data: {str(e)}")
-
-
-@app.post("/vlogs-data", response_model=APIResponse)
-async def create_vlog_data(vlog: VlogData):
-    """Create a new vlog data entry (Frontend compatible)"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        vlog_dict = vlog.dict()
-        vlog_dict["created_at"] = datetime.utcnow()
-        
-        result = await db["vlogs_data"].insert_one(vlog_dict)
-        
-        return APIResponse(
-            success=True,
-            message="Vlog data created successfully",
-            data={"id": str(result.inserted_id)}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating vlog data: {str(e)}")
-
-
-@app.post("/locations", response_model=APIResponse)
-async def create_location_data(location: Location):
-    """Create a new location data entry"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        location_dict = location.dict()
-        location_dict["created_at"] = datetime.utcnow()
-        location_dict["timestamp"] = datetime.utcnow().isoformat()
-        
-        result = await db["locations"].insert_one(location_dict)
-        
-        return APIResponse(
-            success=True,
-            message="Location data created successfully",
-            data={"id": str(result.inserted_id)}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating location data: {str(e)}")
-
-
-# Legacy Data Collection Endpoints (for backward compatibility)
+# Data Collection Endpoints
 @app.post("/vlogs", response_model=APIResponse)
 async def create_vlog(vlog: Vlog):
     """Create a new vlog entry"""
     try:
-        db = get_database(app)
-        if not db:
+        db = await get_database()
+        if db is None:
             raise HTTPException(status_code=500, detail="Database not connected")
         
         vlog_dict = vlog.dict()
@@ -159,8 +80,8 @@ async def create_vlog(vlog: Vlog):
 async def create_sentiment(sentiment: Sentiment):
     """Create a new sentiment entry"""
     try:
-        db = get_database(app)
-        if not db:
+        db = await get_database()
+        if db is None:
             raise HTTPException(status_code=500, detail="Database not connected")
         
         sentiment_dict = sentiment.dict()
@@ -181,8 +102,8 @@ async def create_sentiment(sentiment: Sentiment):
 async def create_gps_coordinate(gps: GPSCoordinate):
     """Create a new GPS coordinate entry"""
     try:
-        db = get_database(app)
-        if not db:
+        db = await get_database()
+        if db is None:
             raise HTTPException(status_code=500, detail="Database not connected")
         
         gps_dict = gps.dict()
@@ -199,95 +120,16 @@ async def create_gps_coordinate(gps: GPSCoordinate):
         raise HTTPException(status_code=500, detail=f"Error creating GPS coordinate: {str(e)}")
 
 
-# Frontend-Compatible Data Retrieval Endpoints
-@app.get("/emotions", response_model=APIResponse)
-async def get_emotions(skip: int = 0, limit: int = 100):
-    """Get all emotion data (Frontend compatible)"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        cursor = db["emotion_data"].find().skip(skip).limit(limit)
-        emotions = []
-        async for emotion in cursor:
-            emotion["_id"] = str(emotion["_id"])
-            emotions.append(emotion)
-        
-        count = await db["emotion_data"].count_documents({})
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved {len(emotions)} emotions",
-            data={"emotions": emotions},
-            count=count
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving emotions: {str(e)}")
-
-
-@app.get("/vlogs-data", response_model=APIResponse)
-async def get_vlogs_data(skip: int = 0, limit: int = 100):
-    """Get all vlog data (Frontend compatible)"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        cursor = db["vlogs_data"].find().skip(skip).limit(limit)
-        vlogs = []
-        async for vlog in cursor:
-            vlog["_id"] = str(vlog["_id"])
-            vlogs.append(vlog)
-        
-        count = await db["vlogs_data"].count_documents({})
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved {len(vlogs)} vlog data entries",
-            data={"vlogs": vlogs},
-            count=count
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving vlog data: {str(e)}")
-
-
-@app.get("/locations", response_model=APIResponse)
-async def get_locations(skip: int = 0, limit: int = 100):
-    """Get all location data"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
-        
-        cursor = db["locations"].find().skip(skip).limit(limit)
-        locations = []
-        async for location in cursor:
-            location["_id"] = str(location["_id"])
-            locations.append(location)
-        
-        count = await db["locations"].count_documents({})
-        
-        return APIResponse(
-            success=True,
-            message=f"Retrieved {len(locations)} location entries",
-            data={"locations": locations},
-            count=count
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving locations: {str(e)}")
-
-
-# Legacy Data Retrieval Endpoints (for backward compatibility)
+# Data Retrieval Endpoints
 @app.get("/vlogs", response_model=APIResponse)
 async def get_vlogs(skip: int = 0, limit: int = 100):
     """Get all vlogs"""
     try:
-        db = get_database(app)
-        if not db:
+        db = await get_database()
+        if db is None:
             return APIResponse(
-                success=False,
-                message="Database not connected",
+                success=True,
+                message="Retrieved 0 vlogs (database not connected)",
                 data={"vlogs": []},
                 count=0
             )
@@ -314,11 +156,11 @@ async def get_vlogs(skip: int = 0, limit: int = 100):
 async def get_sentiments(skip: int = 0, limit: int = 100):
     """Get all sentiments"""
     try:
-        db = get_database(app)
-        if not db:
+        db = await get_database()
+        if db is None:
             return APIResponse(
-                success=False,
-                message="Database not connected",
+                success=True,
+                message="Retrieved 0 sentiments (database not connected)",
                 data={"sentiments": []},
                 count=0
             )
@@ -345,11 +187,11 @@ async def get_sentiments(skip: int = 0, limit: int = 100):
 async def get_gps_coordinates(skip: int = 0, limit: int = 100):
     """Get all GPS coordinates"""
     try:
-        db = get_database(app)
-        if not db:
+        db = await get_database()
+        if db is None:
             return APIResponse(
-                success=False,
-                message="Database not connected",
+                success=True,
+                message="Retrieved 0 GPS coordinates (database not connected)",
                 data={"coordinates": []},
                 count=0
             )
@@ -375,26 +217,15 @@ async def get_gps_coordinates(skip: int = 0, limit: int = 100):
 # Data Export/Download Endpoints
 @app.get("/export")
 async def export_data(
-    request: Request,
-    data_type: Optional[str] = Query(None, pattern="^(vlogs|sentiments|gps|emotions|vlogs-data|locations|all|frontend)$"),
+    data_type: str = Query(..., pattern="^(vlogs|sentiments|gps|all)$"),
     format: str = Query(default="json", pattern="^(json|csv)$")
 ):
-    """Export data in JSON or CSV format, or show export page"""
-    # If no data_type is specified and it's a browser request, show HTML page
-    if data_type is None:
-        accept_header = request.headers.get("accept", "")
-        if "text/html" in accept_header:
-            return await export_page()
-        # Default to frontend data for API calls without data_type
-        data_type = "frontend"
-    
+    """Export data in JSON or CSV format"""
     try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
+        db = await get_database()
         
         if data_type == "all":
-            # Export legacy data types
+            # Export all data types
             vlogs = []
             sentiments = []
             coordinates = []
@@ -417,53 +248,15 @@ async def export_data(
                 "gps_coordinates": coordinates,
                 "export_timestamp": datetime.utcnow().isoformat()
             }
-        elif data_type == "frontend":
-            # Export frontend-compatible data types
-            emotions = []
-            vlogs_data = []
-            locations = []
-            
-            async for emotion in db["emotions"].find():
-                emotion["_id"] = str(emotion["_id"])
-                emotions.append(emotion)
-            
-            async for vlog in db["vlogs_data"].find():
-                vlog["_id"] = str(vlog["_id"])
-                vlogs_data.append(vlog)
-            
-            async for location in db["locations"].find():
-                location["_id"] = str(location["_id"])
-                locations.append(location)
-            
-            data = {
-                "emotionData": emotions,
-                "vlogData": vlogs_data,
-                "locationData": locations,
-                "metadata": {
-                    "appName": "EmoGo",
-                    "exportDate": datetime.utcnow().isoformat(),
-                    "totalRecords": len(emotions) + len(vlogs_data) + len(locations),
-                    "emotionRecords": len(emotions),
-                    "vlogRecords": len(vlogs_data),
-                    "locationRecords": len(locations)
-                }
-            }
         else:
             # Export specific data type
             collection_map = {
                 "vlogs": VLOGS_COLLECTION,
                 "sentiments": SENTIMENTS_COLLECTION,
-                "gps": GPS_COLLECTION,
-                "emotions": "emotions",
-                "vlogs-data": "vlogs_data",
-                "locations": "locations"
+                "gps": GPS_COLLECTION
             }
             
-            collection_name = collection_map.get(data_type)
-            if not collection_name:
-                raise HTTPException(status_code=400, detail=f"Invalid data type: {data_type}")
-            
-            collection = db[collection_name]
+            collection = db[collection_map[data_type]]
             items = []
             async for item in collection.find():
                 item["_id"] = str(item["_id"])
@@ -510,81 +303,149 @@ async def export_data(
         raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
 
 
-@app.get("/api/export/{data_type}")
-async def simple_export_data(data_type: str, format: str = "json"):
-    """Simple export data endpoint without complex Query validation"""
-    try:
-        db = get_database(app)
-        if not db:
-            raise HTTPException(status_code=500, detail="Database not connected")
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    """Frontend data dashboard page"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>🎭 EmoGo Data Export Portal</title>
+        <style>
+            body { font-family: Arial, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f0f2f5; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+            .stats-section { margin: 20px 0; }
+            .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+            .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; min-width: 200px; }
+            .stat-number { font-size: 2em; font-weight: bold; }
+            .stat-label { font-size: 0.9em; opacity: 0.9; }
+            .export-section { margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #007bff; }
+            button { padding: 12px 24px; margin: 8px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: background 0.3s; }
+            button:hover { background: #0056b3; }
+            .api-section { background: #e8f4fd; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .emoji { font-size: 1.5em; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🎭 EmoGo Data Export Portal</h1>
+            <p>Welcome to the EmoGo data export interface. Here you can download all collected data from the EmoGo mobile application.</p>
+        </div>
         
-        # Validate data_type
-        valid_types = ["vlogs", "sentiments", "gps", "emotions", "vlogs-data", "locations", "all", "frontend"]
-        if data_type not in valid_types:
-            raise HTTPException(status_code=400, detail=f"Invalid data_type. Must be one of: {valid_types}")
+        <div class="container">
+            <div class="stats-section">
+                <h3>📊 Frontend Data Statistics:</h3>
+                <div class="stats" id="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="emotions-count">-</div>
+                        <div class="stat-label">Emotions: 0 entries</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="vlogs-count">-</div>
+                        <div class="stat-label">Vlog Data: 0 entries</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="locations-count">-</div>
+                        <div class="stat-label">Locations: 0 entries</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="export-section">
+                <h3><span class="emoji">😊</span> Sentiments Data</h3>
+                <p>Sentiment analysis and emotional data from user inputs</p>
+                <button onclick="downloadData('sentiments', 'json')">Download JSON</button>
+                <button onclick="downloadData('sentiments', 'csv')">Download CSV</button>
+            </div>
+            
+            <div class="export-section">
+                <h3><span class="emoji">📱</span> Vlogs Data</h3>
+                <p>Video logs and diary entries from users</p>
+                <button onclick="downloadData('vlogs', 'json')">Download JSON</button>
+                <button onclick="downloadData('vlogs', 'csv')">Download CSV</button>
+            </div>
+            
+            <div class="export-section">
+                <h3><span class="emoji">📍</span> GPS Coordinates</h3>
+                <p>Location tracking and geographical data</p>
+                <button onclick="downloadData('gps', 'json')">Download JSON</button>
+                <button onclick="downloadData('gps', 'csv')">Download CSV</button>
+            </div>
+            
+            <div class="export-section">
+                <h3><span class="emoji">📦</span> All Data</h3>
+                <p>Complete export of all collected data</p>
+                <button onclick="downloadData('all', 'json')">Download All (JSON)</button>
+            </div>
+        </div>
         
-        if data_type == "frontend":
-            # Export all frontend data types
-            emotions = []
-            vlogs_data = []
-            locations = []
+        <div class="api-section">
+            <h4>🔌 API Endpoints for Frontend Integration:</h4>
+            <ul>
+                <li><strong>POST</strong> /vlogs - Submit vlog data</li>
+                <li><strong>POST</strong> /sentiments - Submit sentiment data</li>
+                <li><strong>POST</strong> /gps - Submit GPS coordinate data</li>
+                <li><strong>GET</strong> /vlogs - Retrieve vlogs</li>
+                <li><strong>GET</strong> /sentiments - Retrieve sentiments</li>
+                <li><strong>GET</strong> /gps - Retrieve GPS coordinates</li>
+                <li><strong>GET</strong> /export - Export data (supports query params: data_type, format)</li>
+                <li><strong>GET</strong> /docs - Complete API documentation</li>
+            </ul>
             
-            async for emotion in db["emotion_data"].find():
-                emotion["_id"] = str(emotion["_id"])
-                emotions.append(emotion)
-            
-            async for vlog in db["vlog_data"].find():
-                vlog["_id"] = str(vlog["_id"])
-                vlogs_data.append(vlog)
-                
-            async for location in db["locations"].find():
-                location["_id"] = str(location["_id"])
-                locations.append(location)
-            
-            return {
-                "success": True,
-                "data": {
-                    "emotions": emotions,
-                    "vlogs_data": vlogs_data,
-                    "locations": locations
-                },
-                "count": {
-                    "emotions": len(emotions),
-                    "vlogs_data": len(vlogs_data),
-                    "locations": len(locations)
-                },
-                "export_timestamp": datetime.utcnow().isoformat()
+            <p><strong>Base URL:</strong> <code>https://emogo-backend-ru-lai.onrender.com</code></p>
+        </div>
+        
+        <script>
+            function downloadData(dataType, format) {
+                const url = `/export?data_type=${dataType}&format=${format}`;
+                window.open(url, '_blank');
             }
-        
-        # Handle other data types...
-        collection_map = {
-            "vlogs": VLOGS_COLLECTION,
-            "sentiments": SENTIMENTS_COLLECTION,
-            "gps": GPS_COLLECTION,
-            "emotions": "emotion_data",
-            "vlogs-data": "vlog_data",
-            "locations": "locations"
-        }
-        
-        collection_name = collection_map.get(data_type)
-        if not collection_name:
-            raise HTTPException(status_code=400, detail="Invalid data type")
-        
-        data = []
-        async for doc in db[collection_name].find():
-            doc["_id"] = str(doc["_id"])
-            data.append(doc)
-        
-        return {
-            "success": True,
-            "data": data,
-            "count": len(data),
-            "export_timestamp": datetime.utcnow().isoformat()
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error exporting data: {str(e)}")
-
+            
+            async function loadStats() {
+                try {
+                    const responses = await Promise.all([
+                        fetch('/sentiments'),
+                        fetch('/vlogs'),
+                        fetch('/gps')
+                    ]);
+                    
+                    const data = await Promise.all(responses.map(async r => {
+                        if (r.ok) return await r.json();
+                        return { count: 0 };
+                    }));
+                    
+                    // Update the display
+                    document.querySelector('.stats').innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-number">${data[0].count || 0}</div>
+                            <div class="stat-label">Emotions</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${data[1].count || 0}</div>
+                            <div class="stat-label">Vlog Data</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number">${data[2].count || 0}</div>
+                            <div class="stat-label">Locations</div>
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                    document.querySelector('.stats').innerHTML = '<p>Unable to load statistics. Database may not be connected.</p>';
+                }
+            }
+            
+            loadStats();
+            
+            // Refresh stats every 30 seconds
+            setInterval(loadStats, 30000);
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html_content)
 
 @app.get("/export-page", response_class=HTMLResponse)
 async def export_page():
@@ -613,81 +474,42 @@ async def export_page():
             </div>
             
             <div class="export-section">
-                <h3>🎭 Frontend Data (EmoGo Compatible)</h3>
-                <p>Complete EmoGo app data in frontend format</p>
-                <button onclick="downloadData('frontend', 'json')">Download Frontend Data (JSON)</button>
-            </div>
-            
-            <div class="export-section">
-                <h3>😊 Emotion Data</h3>
-                <p>User emotion tracking data with mood scales</p>
-                <button onclick="downloadData('emotions', 'json')">Download JSON</button>
-                <button onclick="downloadData('emotions', 'csv')">Download CSV</button>
-            </div>
-            
-            <div class="export-section">
-                <h3>📱 Vlog Data</h3>
-                <p>Video logs with mood and location information</p>
-                <button onclick="downloadData('vlogs-data', 'json')">Download JSON</button>
-                <button onclick="downloadData('vlogs-data', 'csv')">Download CSV</button>
-            </div>
-            
-            <div class="export-section">
-                <h3>📍 Location Data</h3>
-                <p>GPS coordinates and location tracking</p>
-                <button onclick="downloadData('locations', 'json')">Download JSON</button>
-                <button onclick="downloadData('locations', 'csv')">Download CSV</button>
-            </div>
-            
-            <hr style="margin: 20px 0;">
-            <h4 style="color: #666;">Legacy Data Formats:</h4>
-            
-            <div class="export-section">
-                <h3>📱 Vlogs (Legacy)</h3>
+                <h3>📱 Vlogs Data</h3>
                 <p>Video logs and diary entries from users</p>
                 <button onclick="downloadData('vlogs', 'json')">Download JSON</button>
                 <button onclick="downloadData('vlogs', 'csv')">Download CSV</button>
             </div>
             
             <div class="export-section">
-                <h3>😊 Sentiments (Legacy)</h3>
+                <h3>😊 Sentiments Data</h3>
                 <p>Sentiment analysis and emotional data</p>
                 <button onclick="downloadData('sentiments', 'json')">Download JSON</button>
                 <button onclick="downloadData('sentiments', 'csv')">Download CSV</button>
             </div>
             
             <div class="export-section">
-                <h3>📍 GPS Coordinates (Legacy)</h3>
+                <h3>📍 GPS Coordinates</h3>
                 <p>Location tracking and geographical data</p>
                 <button onclick="downloadData('gps', 'json')">Download JSON</button>
                 <button onclick="downloadData('gps', 'csv')">Download CSV</button>
             </div>
             
             <div class="export-section">
-                <h3>📦 All Legacy Data</h3>
-                <p>Complete export of legacy format data</p>
+                <h3>📦 All Data</h3>
+                <p>Complete export of all collected data</p>
                 <button onclick="downloadData('all', 'json')">Download All (JSON)</button>
             </div>
             
             <div style="margin-top: 30px; padding: 15px; background: #d1ecf1; border-radius: 5px;">
-                <h4>📋 Frontend-Compatible API Endpoints:</h4>
+                <h4>📋 API Endpoints:</h4>
                 <ul>
-                    <li><strong>POST</strong> /emotions - Submit emotion data (Frontend format)</li>
-                    <li><strong>POST</strong> /vlogs-data - Submit vlog data (Frontend format)</li>
-                    <li><strong>POST</strong> /locations - Submit location data</li>
-                    <li><strong>GET</strong> /emotions - Retrieve emotion data</li>
-                    <li><strong>GET</strong> /vlogs-data - Retrieve vlog data</li>
-                    <li><strong>GET</strong> /locations - Retrieve location data</li>
-                </ul>
-                <h4>📋 Legacy API Endpoints:</h4>
-                <ul>
-                    <li><strong>POST</strong> /vlogs - Submit vlog data (Legacy)</li>
-                    <li><strong>POST</strong> /sentiments - Submit sentiment data (Legacy)</li>
-                    <li><strong>POST</strong> /gps - Submit GPS coordinate data (Legacy)</li>
-                    <li><strong>GET</strong> /vlogs - Retrieve vlogs (Legacy)</li>
-                    <li><strong>GET</strong> /sentiments - Retrieve sentiments (Legacy)</li>
-                    <li><strong>GET</strong> /gps - Retrieve GPS coordinates (Legacy)</li>
-                    <li><strong>GET</strong> /export - Export data (supports: emotions, vlogs-data, locations, frontend, all, legacy types)</li>
+                    <li><strong>POST</strong> /vlogs - Submit vlog data</li>
+                    <li><strong>POST</strong> /sentiments - Submit sentiment data</li>
+                    <li><strong>POST</strong> /gps - Submit GPS coordinate data</li>
+                    <li><strong>GET</strong> /vlogs - Retrieve vlogs</li>
+                    <li><strong>GET</strong> /sentiments - Retrieve sentiments</li>
+                    <li><strong>GET</strong> /gps - Retrieve GPS coordinates</li>
+                    <li><strong>GET</strong> /export - Export data (supports query params: data_type, format)</li>
                     <li><strong>GET</strong> /docs - API documentation</li>
                 </ul>
             </div>
@@ -702,9 +524,6 @@ async def export_page():
             async function loadStats() {
                 try {
                     const responses = await Promise.all([
-                        fetch('/emotions'),
-                        fetch('/vlogs-data'),
-                        fetch('/locations'),
                         fetch('/vlogs'),
                         fetch('/sentiments'),
                         fetch('/gps')
@@ -713,15 +532,10 @@ async def export_page():
                     const data = await Promise.all(responses.map(r => r.json()));
                     
                     const statsHtml = `
-                        <h4>📊 Frontend Data Statistics:</h4>
-                        <p><strong>Emotions:</strong> ${data[0].count || 0} entries</p>
-                        <p><strong>Vlog Data:</strong> ${data[1].count || 0} entries</p>
-                        <p><strong>Locations:</strong> ${data[2].count || 0} entries</p>
-                        <hr>
-                        <h4>📊 Legacy Data Statistics:</h4>
-                        <p><strong>Vlogs (Legacy):</strong> ${data[3].count || 0} entries</p>
-                        <p><strong>Sentiments (Legacy):</strong> ${data[4].count || 0} entries</p>
-                        <p><strong>GPS Coordinates (Legacy):</strong> ${data[5].count || 0} entries</p>
+                        <h4>📊 Data Statistics:</h4>
+                        <p><strong>Vlogs:</strong> ${data[0].count || 0} entries</p>
+                        <p><strong>Sentiments:</strong> ${data[1].count || 0} entries</p>
+                        <p><strong>GPS Coordinates:</strong> ${data[2].count || 0} entries</p>
                         <p><em>Last updated: ${new Date().toLocaleString()}</em></p>
                     `;
                     
