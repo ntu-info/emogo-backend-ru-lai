@@ -223,6 +223,28 @@ async def export_data(
     """Export data in JSON or CSV format"""
     try:
         db = await get_database()
+        if db is None:
+            # Return empty data if database not connected
+            empty_data = {
+                "vlogs": [],
+                "sentiments": [], 
+                "gps_coordinates": [],
+                "export_timestamp": datetime.utcnow().isoformat(),
+                "note": "Database not connected"
+            }
+            if format == "json":
+                json_str = json.dumps(empty_data, indent=2, default=str)
+                return Response(
+                    content=json_str,
+                    media_type="application/json",
+                    headers={"Content-Disposition": f"attachment; filename=emogo_export_{data_type}_empty.json"}
+                )
+            else:
+                return Response(
+                    content="No data available (database not connected)",
+                    media_type="text/plain",
+                    headers={"Content-Disposition": f"attachment; filename=emogo_export_{data_type}_empty.txt"}
+                )
         
         if data_type == "all":
             # Export all data types

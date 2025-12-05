@@ -48,9 +48,14 @@ async def close_mongo_connection():
 
 async def get_database():
     """Get database instance"""
-    if db.database is None:
-        await connect_to_mongo()
-    return db.database
+    try:
+        # Check if database connection exists
+        if db.database is None:
+            await connect_to_mongo()
+        return db.database
+    except Exception as e:
+        logger.error(f"Error getting database: {e}")
+        return None
 
 
 # Collection names
