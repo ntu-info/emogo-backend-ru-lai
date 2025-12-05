@@ -47,12 +47,12 @@ async def shutdown_event():
     await close_mongo_connection()
 
 
-@app.get("/", response_model=APIResponse)
-async def root():
+@app.get("/api", response_model=APIResponse)
+async def api_info():
     return APIResponse(
         success=True,
-        message="Welcome to EmoGo Backend API! Visit /docs for API documentation.",
-        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export", "/emotions", "/status"]}
+        message="EmoGo Backend API Information. Visit /docs for full API documentation.",
+        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export", "/emotions", "/status", "/dashboard"]}
     )
 
 
