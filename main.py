@@ -4,7 +4,7 @@ import json
 import csv
 from io import StringIO
 
-from fastapi import FastAPI, HTTPException, Response, Query
+from fastapi import FastAPI, HTTPException, Response, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse
 
@@ -369,10 +369,19 @@ async def get_gps_coordinates(skip: int = 0, limit: int = 100):
 # Data Export/Download Endpoints
 @app.get("/export")
 async def export_data(
-    data_type: str = Query(..., pattern="^(vlogs|sentiments|gps|emotions|vlogs-data|locations|all|frontend)$"),
+    request: Request,
+    data_type: Optional[str] = Query(None, pattern="^(vlogs|sentiments|gps|emotions|vlogs-data|locations|all|frontend)$"),
     format: str = Query(default="json", pattern="^(json|csv)$")
 ):
-    """Export data in JSON or CSV format"""
+    """Export data in JSON or CSV format, or show export page"""
+    # If no data_type is specified and it's a browser request, show HTML page
+    if data_type is None:
+        accept_header = request.headers.get("accept", "")
+        if "text/html" in accept_header:
+            return await export_page()
+        # Default to frontend data for API calls without data_type
+        data_type = "frontend"
+    
     try:
         db = get_database(app)
         if not db:
