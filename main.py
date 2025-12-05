@@ -50,8 +50,40 @@ async def root():
     return APIResponse(
         success=True,
         message="Welcome to EmoGo Backend API! Visit /docs for API documentation.",
-        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export"]}
+        data={"endpoints": ["/vlogs", "/sentiments", "/gps", "/export", "/emotions", "/status"]}
     )
+
+
+@app.get("/status", response_model=APIResponse)
+async def get_status():
+    """Get database connection status"""
+    try:
+        import os
+        mongodb_uri = os.getenv("MONGODB_URI")
+        database = await get_database()
+        
+        if database == "memory_db":
+            db_status = "Using in-memory database (MongoDB not configured)"
+        elif database is None:
+            db_status = "No database connection"
+        else:
+            db_status = "Connected to MongoDB"
+            
+        return APIResponse(
+            success=True,
+            message="Backend status check",
+            data={
+                "database_status": db_status,
+                "mongodb_uri_configured": mongodb_uri is not None,
+                "mongodb_uri_preview": mongodb_uri[:20] + "..." if mongodb_uri else None
+            }
+        )
+    except Exception as e:
+        return APIResponse(
+            success=False,
+            message=f"Status check failed: {str(e)}",
+            data={"error": str(e)}
+        )
 
 
 # Data Collection Endpoints
